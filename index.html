@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio - VnExpress Điểm Thi THPTQG Scraper</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="profile-section">
+                <img src="me.png" alt="Vu Duc Hoang" class="profile-image">
+                <div class="profile-info">
+                    <h1><i class="fas fa-code"></i> Vu Duc Hoang</h1>
+                    <p>Web Scraping, Automation, Data Analysis, Wireshark</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <section class="intro">
+                <h2>Giới thiệu</h2>
+                <p>Chào mừng đến với portfolio của tôi! Đây là nơi tôi thể hiện các kỹ năng về web scraping, data crawling, hỗ trợ sử dụng máy tính, phân tích dữ liệu, kiểm tra lưu lượng mạng, hoạt động bất thường cho máy tính Windows.</p>
+                <p>Dưới đây là một số dự án nổi bật mà tôi đã thực hiện.</p>
+            </section>
+
+            <section class="project-showcase">
+                <div class="project-card">
+                    <h3><i class="fas fa-graduation-cap"></i> VnExpress Điểm Thi THPTQG Scraper</h3>
+                    
+                    <!-- Hình ảnh từ website gốc -->
+                    <div class="image-section">
+                        <h4>Website gốc:</h4>
+                        <div class="website-image">
+                            <img src="diemthi_web.png" alt="VnExpress Điểm Thi Website">
+                            <p class="image-caption">Giao diện tra cứu điểm thi THPTQG 2025 trên VnExpress</p>
+                        </div>
+                    </div>
+
+                    <!-- Code section -->
+                    <div class="code-section">
+                        <h4><i class="fas fa-code"></i> Mã nguồn Python:</h4>
+                        <div class="code-container">
+                            <button class="copy-btn" onclick="copyCode('code1')">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                            <pre><code id="code1" class="language-python">import requests
+import requests
+from bs4 import BeautifulSoup
+import csv
+import time
+import random
+import os
+
+START_SBD = 30000001
+END_SBD = 39999999
+YEAR = 2025
+MAX_ERRORS = 3
+OUTPUT_FILE = 'diemthi_thptqg_2025.csv'
+
+headers = {
+	'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+	'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+}
+
+all_subjects = set()
+rows = []
+error_count = 0
+
+def get_student_data(sbd):
+	url = f"https://diemthi.vnexpress.net/index/detail/sbd/{sbd}/year/{YEAR}"
+	print(f"Lấy SBD: {sbd}")
+	try:
+		resp = requests.get(url, headers=headers, timeout=10)
+		if resp.status_code != 200:
+			return None
+		soup = BeautifulSoup(resp.text, 'html.parser')
+		info = soup.find('div', class_='o-detail-thisinh__info')
+		diemthi = soup.find('div', class_='o-detail-thisinh__diemthi')
+		if not info or not diemthi:
+			return None
+		sbd_tag = info.find('h2', class_='o-detail-thisinh__sbd')
+		sbd_val = sbd_tag.find('strong').text.strip() if sbd_tag else str(sbd)
+		table = diemthi.find('table', class_='e-table')
+		if not table:
+			return None
+		tbody = table.find('tbody')
+		subjects = {}
+		for tr in tbody.find_all('tr'):
+			tds = tr.find_all('td')
+			if len(tds) == 2:
+				mon = tds[0].text.strip()
+				diem = tds[1].text.strip()
+				subjects[mon] = diem
+		return {
+			'SBD': sbd_val,
+			'Subjects': subjects
+		}
+	except Exception:
+		return None
+
+def write_csv(rows, all_subjects):
+	fieldnames = ['SBD'] + sorted(all_subjects)
+	with open(OUTPUT_FILE, 'w', newline='', encoding='utf-8-sig') as f:
+		writer = csv.DictWriter(f, fieldnames=fieldnames)
+		writer.writeheader()
+		for row in rows:
+			for mon in all_subjects:
+				if mon not in row:
+					row[mon] = ''
+			writer.writerow(row)
+
+def append_csv(row, all_subjects, write_header=False):
+	fieldnames = ['SBD'] + sorted(all_subjects)
+	with open(OUTPUT_FILE, 'a', newline='', encoding='utf-8-sig') as f:
+		writer = csv.DictWriter(f, fieldnames=fieldnames)
+		if write_header:
+			writer.writeheader()
+		for mon in all_subjects:
+			if mon not in row:
+				row[mon] = ''
+		writer.writerow(row)
+
+# File exist or not
+file_exists = os.path.exists(OUTPUT_FILE)
+
+for sbd in range(START_SBD, END_SBD + 1):
+	data = get_student_data(sbd)
+	if data is None:
+		error_count += 1
+		if error_count >= MAX_ERRORS:
+			print(f"Dừng lại ở SBD {sbd} do gặp {MAX_ERRORS} lần lỗi liên tiếp.")
+			break
+	else:
+		error_count = 0
+		new_subjects = set(data['Subjects'].keys()) - all_subjects
+		all_subjects.update(data['Subjects'].keys())
+		row = {'SBD': data['SBD']}
+		row.update(data['Subjects'])
+		rows.append(row)
+		# If new subjects found, update the entire CSV file with new header
+		if new_subjects and len(rows) > 1:
+			print(f"Phát hiện môn mới: {new_subjects}. Đang cập nhật lại file CSV...")
+			write_csv(rows, all_subjects)
+		else:
+			# If no new subjects found, append the row to the existing CSV
+			append_csv(row, all_subjects, write_header=(not file_exists and len(rows) == 1))
+			file_exists = True
+	time.sleep(random.uniform(0.2, 0.7))</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- Kết quả -->
+                    <div class="result-section">
+                        <h4><i class="fas fa-chart-bar"></i> Kết quả thu được:</h4>
+                        <div class="result-image">
+                            <img src="diemthi_csv.png" alt="Kết quả CSV Điểm Thi">
+                            <p class="image-caption">Dữ liệu điểm thi THPTQG được trích xuất và lưu vào file CSV với các cột: SBD, Toán, Ngữ văn, Lịch sử, Địa lý, Vật lý, Hóa học, Sinh học...</p>
+                        </div>
+                        
+                        <div class="stats">
+                            <!-- <div class="stat-item">
+                                <i class="fas fa-users"></i>
+                                <span class="stat-number">10M+</span>
+                                <span class="stat-label">Số báo danh quét</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-graduation-cap"></i>
+                                <span class="stat-number">7</span>
+                                <span class="stat-label">Môn thi được crawl</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-clock"></i>
+                                <span class="stat-number">0.5s</span>
+                                <span class="stat-label">Thời gian/request</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-shield-alt"></i>
+                                <span class="stat-number">100%</span>
+                                <span class="stat-label">Rate limit safe</span>
+                            </div> -->
+                        </div>
+                    </div>
+
+                    <div class="tech-stack">
+                        <h4>Công nghệ sử dụng:</h4>
+                        <div class="tech-tags">
+                            <span class="tech-tag python">Python</span>
+                            <span class="tech-tag requests">Requests</span>
+                            <span class="tech-tag bs4">BeautifulSoup</span>
+                            <span class="tech-tag csv">CSV Processing</span>
+                            <span class="tech-tag error-handling">Error Handling</span>
+                            <span class="tech-tag rate-limit">Rate Limiting</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thêm project card khác -->
+                <div class="project-card">
+                    <h3><i class="fas fa-table"></i> Additional Projects</h3>
+                    
+                    <div class="mini-projects">
+                        <div class="mini-project">
+                            <a href="../vnexpress_news/index.html" target="_blank" rel="noopener noreferrer">
+                                <h5>VnExpress News Scraper</h5>
+                            </a>
+                            <p>Trích xuất các chuyên mục tin tức từ VnExpress</p>
+                            <div class="mini-tech-tags">
+                                <span class="tech-tag">Python</span>
+                                <span class="tech-tag">Selenium</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mini-project">
+                            <a href="../bbc/index.html" target="_blank" rel="noopener noreferrer">
+                                <h5>BBC News to DOCX</h5>
+                            </a>
+                            <p>Trích xuất tin tức từ BBC và chuyển đổi sang định dạng DOCX</p>
+                            <div class="mini-tech-tags">
+                                <span class="tech-tag">Python</span>
+                                <span class="tech-tag">DOCX</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mini-project">
+                            <a href="../table_wiki/index.html" target="_blank" rel="noopener noreferrer">
+                                <h5>Wikipedia Table Scraper</h5>
+                            </a>
+                            <p>Trích xuất và làm sạch dữ liệu bảng từ Wikipedia</p>
+                            <div class="mini-tech-tags">
+                                <span class="tech-tag">Python</span>
+                                <span class="tech-tag">Data Cleaning</span>
+                            </div>
+                        </div>
+
+                        <div class="mini-project">
+                            <a href="../pinterest/index.html" target="_blank" rel="noopener noreferrer">
+                                <h5>Pinterest Image Downloader</h5>
+                            </a>
+                            <p>Tự động tải xuống hình ảnh từ Pinterest</p>
+                            <div class="mini-tech-tags">
+                                <span class="tech-tag">Python</span>
+                                <span class="tech-tag">Automation</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <section class="skills">
+                <h2><i class="fas fa-tools"></i> Kỹ năng chính</h2>
+                <div class="skills-grid">
+                    <div class="skill-item">
+                        <i class="fab fa-python"></i>
+                        <h4>Python Programming</h4>
+                        <p>Selenium, BeautifulSoup, Pandas, Requests</p>
+                    </div>
+                    <div class="skill-item">
+                        <i class="fas fa-spider"></i>
+                        <h4>Web Scraping</h4>
+                        <p>Data extraction, Browser automation, API integration</p>
+                    </div>
+                    <div class="skill-item">
+                        <i class="fas fa-database"></i>
+                        <h4>Data Processing</h4>
+                        <p>CSV, Excel, JSON, Data cleaning & transformation</p>
+                    </div>
+                    <div class="skill-item">
+                        <i class="fas fa-network-wired"></i>
+                        <h4>Wireshark</h4>
+                        <p>Network protocol analysis, Packet capturing, Traffic inspection</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Portfolio - Vu Duc Hoang</p>
+            <div class="social-links">
+                <a href="#"><i class="fab fa-github"></i></a>
+                <a href="#"><i class="fab fa-linkedin"></i></a>
+                <a href="#"><i class="fas fa-envelope"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-python.min.js"></script>
+    <script>
+        function copyCode(elementId) {
+            const code = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const btn = event.target.closest('.copy-btn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                btn.style.background = '#48bb78';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            });
+        }
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Add animation on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.project-card, .skill-item').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
